@@ -219,7 +219,7 @@
         <div class="field full"><label for="contact-message">Project details</label><textarea id="contact-message" name="message" required placeholder="Tell me a little about your project…"></textarea></div>
       </div>
       <button class="button primary form-submit" type="submit">Send project inquiry ↗</button>
-      <p class="form-note">This opens a Gmail draft addressed to Prabal. Review it and send from Gmail.</p>
+      <p class="form-note" id="contact-form-status" role="status" aria-live="polite">Your enquiry will be sent to Prabal’s inbox.</p>
     </form>
   </div></section>
   <footer class="wrap"><span>© 2026 Prabal Jain</span><a href="#top">Back to top ↑</a></footer>
@@ -255,11 +255,39 @@
 
     document.getElementById('contact-form').addEventListener('submit', function (event) {
       event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      const subject = `Portfolio inquiry${form.get('project') ? ` — ${form.get('project')}` : ''}`;
-      const body = [`Name: ${form.get('name')}`, `Email: ${form.get('email')}`, `Project: ${form.get('project') || 'Not specified'}`, '', 'Project details:', form.get('message')].join('\n');
-      const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent('pjbottom2@gmail.com')}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.location.assign(composeUrl);
+      const contactForm = event.currentTarget;
+      const submitButton = contactForm.querySelector('[type="submit"]');
+      const status = document.getElementById('contact-form-status');
+      const form = new FormData(contactForm);
+      const project = form.get('project') || 'Not specified';
+      submitButton.disabled = true;
+      submitButton.textContent = 'Sending…';
+      status.textContent = 'Sending your enquiry…';
+
+      fetch('https://formsubmit.co/ajax/pjbottom2@gmail.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          name: form.get('name'),
+          email: form.get('email'),
+          _replyto: form.get('email'),
+          project,
+          message: form.get('message'),
+          _subject: `Portfolio inquiry — ${project}`,
+          _template: 'table'
+        })
+      })
+        .then(async (response) => {
+          const result = await response.json();
+          if (!response.ok || String(result.success).toLowerCase() === 'false') throw new Error(result.message || 'The enquiry could not be sent.');
+          window.alert('Enquiry sent! Thanks for reaching out.');
+          window.location.reload();
+        })
+        .catch(() => {
+          status.textContent = 'Could not send your enquiry right now. Please try again in a moment.';
+          submitButton.disabled = false;
+          submitButton.textContent = 'Send project inquiry ↗';
+        });
     });
   </script>
 </body>
